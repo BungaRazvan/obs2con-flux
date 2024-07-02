@@ -1,4 +1,4 @@
-import { Editor, MarkdownView, Notice, Plugin, TFile } from "obsidian";
+import { Editor, Notice, Plugin, TFile, FileView } from "obsidian";
 
 import { Obs2ConFluxSettingsTab } from "lib/settings";
 import { Obs2ConFluxSettings } from "lib/confluence/types";
@@ -7,6 +7,7 @@ import ConfluenceClient from "lib/confluence/client";
 import PropertiesAdaptor from "lib/adaptors/properties";
 import FileAdaptor from "lib/adaptors/file";
 import SpaceSearchModal from "lib/modal";
+import { toBlob, toPng } from "html-to-image";
 
 export default class Obs2ConFluxPlugin extends Plugin {
 	settings: Obs2ConFluxSettings;
@@ -20,10 +21,50 @@ export default class Obs2ConFluxPlugin extends Plugin {
 		this.addCommand({
 			id: "upload-file-to-confluence",
 			name: "Upload file to confluence",
-			editorCallback: async (editor: Editor, ctx: MarkdownView) => {
+			editorCallback: async (editor: Editor, ctx) => {
 				this.uploadFile(ctx.file?.path || "");
 			},
 		});
+
+		this.addCommand({
+			id: "upload-canvas-to-confluence",
+			name: "Upload canvas to confluence",
+
+			callback: async () => {
+				// app.workspace.getLeavesOfType('canvas')[0].view.canvas.takeScreenshot
+
+				const activeCanvas = this.getActiveCanvas();
+
+				const content = activeCanvas.view.contentEl;
+				// Hide the canvas background dots
+				content.querySelector(".canvas-background").style.display =
+					"none";
+				// Hide the canvas UI controls
+				content.querySelector(".canvas-card-menu").style.display =
+					"none";
+				content.querySelector(".canvas-controls").style.display =
+					"none";
+
+				const imageBlob = await toBlob(content);
+
+				// Show the canvas UI controls
+				content.querySelector(".canvas-card-menu").style.display = "";
+				content.querySelector(".canvas-controls").style.display = "";
+				content.querySelector(".canvas-background").style.display = "";
+				console.log(content);
+				return imageBlob;
+			},
+		});
+	}
+
+	getActiveCanvas(): any {
+		let currentView = this.app.workspace?.getActiveViewOfType(FileView);
+
+		if (currentView?.getViewType() !== "canvas") {
+			return null;
+		}
+
+		return (currentView as any)["canvas"];
 	}
 
 	async uploadFile(filePath: string) {

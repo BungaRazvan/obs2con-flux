@@ -1,4 +1,12 @@
-import { App, Component, MarkdownRenderer, Notice, TFile } from "obsidian";
+import {
+	App,
+	Component,
+	MarkdownRenderer,
+	Notice,
+	TFile,
+	FileView,
+	Events,
+} from "obsidian";
 
 import ADFBuilder from "../builder/adf";
 import {
@@ -33,6 +41,8 @@ export default class FileAdaptor {
 			path,
 			new Component()
 		);
+
+		console.log(container);
 		return await this.htmlToAdf(container, path);
 	}
 
@@ -127,13 +137,8 @@ export default class FileAdaptor {
 				item = builder.strikeItem(node.textContent!);
 				break;
 			case "SPAN":
-				const imgfile = this.app.vault.getFileByPath(
-					node.getAttr("alt")!
-				);
-
-				if (!imgfile) {
-					break;
-				}
+				const canvasEmbed = node.classList.contains("canvas-embed");
+				const imageEmbed = node.classList.contains("image-embed");
 
 				const file = this.app.metadataCache.getFirstLinkpathDest(
 					filePath,
@@ -143,9 +148,45 @@ export default class FileAdaptor {
 				if (!(file instanceof TFile)) {
 					break;
 				}
+
 				const fileData = await this.app.vault.read(file);
 				const props = new PropertiesAdaptor().loadProperties(fileData);
 				const pageId = props.properties.pageId;
+
+				if (canvasEmbed) {
+					const canvasFile = this.app.vault.getFileByPath(
+						node.getAttr("src")
+					);
+
+					await this.app.workspace.openLinkText(
+						node.getAttr("src"),
+						".",
+						true,
+						{
+							state: false,
+							eState: "hidden",
+							active: false,
+						}
+					);
+
+					console.log(
+						this.app.workspace.getLeavesOfType("canvas")[0].view
+							.contentEl
+					);
+
+					// this.app.workspace.detachLeavesOfType("canvas");
+				} else if (imageEmbed) {
+					const imgfile = this.app.vault.getFileByPath(
+						node.getAttr("alt")!
+					);
+
+					if (!imgfile) {
+						console.log("not know path", node);
+						break;
+					}
+				}
+
+				return;
 
 				const attachmentResponse =
 					await this.client.attachement.uploadImage(
